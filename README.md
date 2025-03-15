@@ -1,4 +1,4 @@
-# Symbolic Differentiation Library
+# Expression: Symbolic Differentiation Library
 
 ## Description
 This library provides symbolic differentiation capabilities for mathematical expressions. It allows users to construct expressions, perform algebraic operations, compute derivatives symbolically, and evaluate expressions with real or complex numbers.
