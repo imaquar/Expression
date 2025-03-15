@@ -1,189 +1,410 @@
 #include "expression.hpp"
+#include <cmath>
+#include <stdexcept>
+#include <sstream>
+#include <cctype>
 #include <iostream>
 
-template <typename T>
-Expression<T>::Expression(T value) : value(value), is_variable(false) {}
+template<typename T>
+Expression<T>::Expression(T value) : root(std::make_unique<ConstantNode>(value)) {}
 
-template <typename T>
-Expression<T>::Expression(const std::string &variable) : variable(variable), is_variable(true) {}
+template<typename T>
+Expression<T>::Expression(const std::string& variable) : root(std::make_unique<VariableNode>(variable)) {}
 
-template <typename T>
-Expression<T>::Expression(const Expression<T>& other) : value(other.value), variable(other.variable), is_variable(other.is_variable) {}
+template<typename T>
+Expression<T>::Expression(const Expression& other) : root(other.root->clone()) {}
 
-template <typename T>
-Expression<T>::Expression(Expression<T>&& other) noexcept : value(std::move(other.value)), variable(std::move(other.variable)), is_variable(other.is_variable) {}
+template<typename T>
+Expression<T>::Expression(Expression&& other) noexcept : root(std::move(other.root)) {}
 
-template <typename T>
-Expression<T>::~Expression() {}
+template<typename T>
+Expression<T>::~Expression() = default;
 
-template <typename T>
-Expression<T>& Expression<T>::operator=(const Expression<T>& other) {
-    value = other.value;
-    variable = other.variable;
-    is_variable = other.is_variable;
+template<typename T>
+Expression<T>& Expression<T>::operator=(const Expression& other) {
+    if (this != &other) {
+        root = other.root->clone();
+    }
     return *this;
 }
 
-template <typename T>
-Expression<T>& Expression<T>::operator=(Expression<T>&& other) noexcept {
-    value = std::move(other.value);
-    variable = std::move(other.variable);
-    is_variable = other.is_variable;
+template<typename T>
+Expression<T>& Expression<T>::operator=(Expression&& other) noexcept {
+    if (this != &other) {
+        root = std::move(other.root);
+    }
     return *this;
 }
 
-template <typename T>
-Expression<T> Expression<T>::operator+(const Expression<T>& other) const {
-    if (is_variable || other.is_variable) {
-        throw std::runtime_error("ошибка");
-    }
-    return Expression<T>(value + other.value);
+template<typename T>
+Expression<T> Expression<T>::operator+(const Expression& other) const {
+    return Expression(std::make_unique<BinaryOperationNode>('+', root->clone(), other.root->clone()));
 }
 
-template <typename T>
-Expression<T> Expression<T>::operator-(const Expression<T>& other) const {
-    if (is_variable || other.is_variable) {
-        throw std::runtime_error("ошибка");
-    }
-    return Expression<T>(value - other.value);
+template<typename T>
+Expression<T> Expression<T>::operator-(const Expression& other) const {
+    return Expression(std::make_unique<BinaryOperationNode>('-', root->clone(), other.root->clone()));
 }
 
-template <typename T>
-Expression<T> Expression<T>::operator*(const Expression<T>& other) const {
-    if (is_variable || other.is_variable) {
-        throw std::runtime_error("ошибка");
-    }
-    return Expression<T>(value * other.value);
+template<typename T>
+Expression<T> Expression<T>::operator*(const Expression& other) const {
+    return Expression(std::make_unique<BinaryOperationNode>('*', root->clone(), other.root->clone()));
 }
 
-template <typename T>
-Expression<T> Expression<T>::operator/(const Expression<T>& other) const {
-    if (is_variable || other.is_variable) {
-        throw std::runtime_error("ошибка");
-    }
-    return Expression<T>(value / other.value);
+template<typename T>
+Expression<T> Expression<T>::operator/(const Expression& other) const {
+    return Expression(std::make_unique<BinaryOperationNode>('/', root->clone(), other.root->clone()));
 }
 
-template <typename T>
-Expression<T> Expression<T>::operator^(const Expression<T>& other) const {
-    if (is_variable || other.is_variable) {
-        throw std::runtime_error("ошибка");
-    }
-    return Expression<T>(std::pow(value, other.value));
+template<typename T>
+Expression<T> Expression<T>::operator^(const Expression& other) const {
+    return Expression(std::make_unique<BinaryOperationNode>('^', root->clone(), other.root->clone()));
 }
 
-template <typename T>
+template<typename T>
 Expression<T> Expression<T>::sin() const {
-    if (is_variable) {
-        throw std::runtime_error("ошибка");
-    }
-    return Expression<T>(std::sin(value));
+    return Expression(std::make_unique<UnaryOperationNode>("sin", root->clone()));
 }
 
-template <typename T>
+template<typename T>
 Expression<T> Expression<T>::cos() const {
-    if (is_variable) {
-        throw std::runtime_error("ошибка");
-    }
-    return Expression<T>(std::cos(value));
+    return Expression(std::make_unique<UnaryOperationNode>("cos", root->clone()));
 }
 
-template <typename T>
+template<typename T>
 Expression<T> Expression<T>::ln() const {
-    if (is_variable) {
-        throw std::runtime_error("ошибка");
-    }
-    return Expression<T>(std::log(value));
+    return Expression(std::make_unique<UnaryOperationNode>("ln", root->clone()));
 }
 
-template <typename T>
+template<typename T>
 Expression<T> Expression<T>::exp() const {
-    if (is_variable) {
-        throw std::runtime_error("ошибка");
-    }
-    return Expression<T>(std::exp(value));
+    return Expression(std::make_unique<UnaryOperationNode>("exp", root->clone()));
 }
 
-template <typename T>
-std::string Expression<T>::to_string() const {
-    if (is_variable) {
-        return variable;
-    } else {
-        std::ostringstream oss;
-        oss << value;
-        return oss.str();
+template<typename T>
+Expression<T> Expression<T>::substitute(const std::string& variable, T value) const {
+    auto newRoot = root->substitute(variable, value);
+    return Expression(std::move(newRoot));
+}
+
+template<typename T>
+std::optional<T> Expression<T>::evaluate(const std::map<std::string, T>& variables) const {
+    return root->evaluate(variables);
+}
+
+template<typename T>
+std::string Expression<T>::toString() const {
+    return root->toString();
+}
+
+template<typename T>
+std::string Expression<T>::toStringWithSubstitution(const std::map<std::string, T>& variables) const {
+    return root->toStringWithSubstitution(variables);
+}
+
+template<typename T>
+Expression<T> Expression<T>::fromString(const std::string& expr) {
+    size_t pos = 0;
+    auto node = parseExpression(expr, pos);
+    return Expression(std::move(node));
+}
+
+template<typename T>
+Expression<T> Expression<T>::differentiate(const std::string& variable) const {
+    auto diffRoot = root->differentiate(variable);
+    return Expression(std::move(diffRoot));
+}
+
+template<typename T>
+std::optional<T> Expression<T>::BinaryOperationNode::evaluate(const std::map<std::string, T>& variables) const {
+    auto leftVal = left->evaluate(variables);
+    auto rightVal = right->evaluate(variables);
+
+    if (!leftVal || !rightVal) {
+        return std::nullopt;
+    }
+
+    switch (op) {
+        case '+': return *leftVal + *rightVal;
+        case '-': return *leftVal - *rightVal;
+        case '*': return *leftVal * *rightVal;
+        case '/': return *leftVal / *rightVal;
+        case '^': return std::pow(*leftVal, *rightVal);
+        default: throw std::invalid_argument("неизвестный оператор");
     }
 }
 
-template <typename T>
-void Expression<T>::substitute(const std::string &variable, T value) {
-    if (is_variable && this->variable == variable) {
-        this->value = value;
-        is_variable = false;
+template<typename T>
+std::string Expression<T>::BinaryOperationNode::toString() const {
+    std::string leftStr = left->toString();
+    std::string rightStr = right->toString();
+
+    if (left->precedence() < this->precedence()) {
+        leftStr = "(" + leftStr + ")";
     }
+    if (right->precedence() < this->precedence()) {
+        rightStr = "(" + rightStr + ")";
+    }
+
+    return leftStr + " " + op + " " + rightStr;
 }
 
-template <typename T>
-T Expression<T>::evaluate(const std::map<std::string, T>& variables) const {
-    if (is_variable) {
-        auto it = variables.find(variable);
-        if (it != variables.end()) {
-            return it->second;
-        } else {
-            throw std::runtime_error("ошибка");
+template<typename T>
+std::string Expression<T>::BinaryOperationNode::toStringWithSubstitution(const std::map<std::string, T>& variables) const {
+    std::string leftStr = left->toStringWithSubstitution(variables);
+    std::string rightStr = right->toStringWithSubstitution(variables);
+
+    if (left->precedence() < this->precedence()) {
+        leftStr = "(" + leftStr + ")";
+    }
+    if (right->precedence() < this->precedence()) {
+        rightStr = "(" + rightStr + ")";
+    }
+
+    return leftStr + " " + op + " " + rightStr;
+}
+
+template<typename T>
+std::optional<T> Expression<T>::UnaryOperationNode::evaluate(const std::map<std::string, T>& variables) const {
+    auto val = operand->evaluate(variables);
+    if (!val) {
+        return std::nullopt;
+    }
+
+    if (func == "sin") return std::sin(*val);
+    if (func == "cos") return std::cos(*val);
+    if (func == "ln") return std::log(*val);
+    if (func == "exp") return std::exp(*val);
+    throw std::invalid_argument("неизвестная функция");
+}
+
+template<typename T>
+std::string Expression<T>::UnaryOperationNode::toString() const {
+    return func + "(" + operand->toString() + ")";
+}
+
+template<typename T>
+std::string Expression<T>::UnaryOperationNode::toStringWithSubstitution(const std::map<std::string, T>& variables) const {
+    return func + "(" + operand->toStringWithSubstitution(variables) + ")";
+}
+
+template<typename T>
+std::optional<T> Expression<T>::VariableNode::evaluate(const std::map<std::string, T>& variables) const {
+    auto it = variables.find(name);
+    if (it != variables.end()) {
+        return it->second;
+    }
+    return std::nullopt;
+}
+
+template<typename T>
+std::unique_ptr<typename Expression<T>::Node> Expression<T>::VariableNode::substitute(const std::string& variable, T value) {
+    if (name == variable) {
+        return std::make_unique<ConstantNode>(value);
+    }
+    return clone();
+}
+
+template<typename T>
+Expression<T> Expression<T>::simplify() const {
+    auto simplifiedRoot = simplifyNode(root->clone());
+    return Expression(std::move(simplifiedRoot));
+}
+
+template<typename T>
+std::unique_ptr<typename Expression<T>::Node> Expression<T>::simplifyNode(std::unique_ptr<Node> node) {
+    if (auto binaryNode = dynamic_cast<BinaryOperationNode*>(node.get())) {
+        auto left = simplifyNode(std::move(binaryNode->left));
+        auto right = simplifyNode(std::move(binaryNode->right));
+
+        if (binaryNode->op == '*' && (left->toString() == "0.000000" || right->toString() == "0.000000")) {
+            return std::make_unique<ConstantNode>(0);
         }
-    } else {
-        return value;
+
+        if (binaryNode->op == '*' && left->toString() == "1.000000") {
+            return right;
+        }
+        if (binaryNode->op == '*' && right->toString() == "1.000000") {
+            return left;
+        }
+
+        if (binaryNode->op == '*' && dynamic_cast<ConstantNode*>(left.get()) && dynamic_cast<ConstantNode*>(right.get())) {
+            T leftValue = dynamic_cast<ConstantNode*>(left.get())->value;
+            T rightValue = dynamic_cast<ConstantNode*>(right.get())->value;
+            return std::make_unique<ConstantNode>(leftValue * rightValue);
+        }
+
+        if (binaryNode->op == '+' && left->toString() == "0.000000") {
+            return right;
+        }
+        if (binaryNode->op == '+' && right->toString() == "0.000000") {
+            return left;
+        }
+
+        if (binaryNode->op == '*' && dynamic_cast<BinaryOperationNode*>(left.get()) && left->toString().find('*') != std::string::npos) {
+            left = simplifyNode(std::move(left));
+        }
+        if (binaryNode->op == '*' && dynamic_cast<BinaryOperationNode*>(right.get()) && right->toString().find('*') != std::string::npos) {
+            right = simplifyNode(std::move(right));
+        }
+
+        return std::make_unique<BinaryOperationNode>(binaryNode->op, std::move(left), std::move(right));
+    }
+
+    if (auto unaryNode = dynamic_cast<UnaryOperationNode*>(node.get())) {
+        auto operand = simplifyNode(std::move(unaryNode->operand));
+        return std::make_unique<UnaryOperationNode>(unaryNode->func, std::move(operand));
+    }
+
+    return node->clone();
+}
+
+template<typename T>
+void Expression<T>::skipWhitespace(const std::string& expr, size_t& pos) {
+    while (pos < expr.size() && std::isspace(expr[pos])) {
+        pos++;
     }
 }
 
-int main(void) {
+template<typename T>
+std::unique_ptr<typename Expression<T>::Node> Expression<T>::parseExpression(const std::string& expr, size_t& pos) {
+    auto left = parseTerm(expr, pos);
+    skipWhitespace(expr, pos);
 
-    Expression<double> ch1(5.0);
-    Expression<double> ch2("x");
-    Expression<double> ch3(2.0);
-
-    auto sum = ch1 + ch3;
-    auto diff = ch1 - ch3;
-    auto prod = ch1 * ch3;
-    auto div = ch1 / ch3;
-    auto pow = ch1 ^ ch3;
-    
-    std::cout << "sum: " << sum.to_string() << std::endl;
-    std::cout << "diff " << diff.to_string() << std::endl;
-    std::cout << "prod: " << prod.to_string() << std::endl;
-    std::cout << "div: " << div.to_string() << std::endl;
-    std::cout << "pow: " << pow.to_string() << std::endl;
- 
-    auto sin = ch1.sin();
-    auto cos = ch1.cos();
-    auto ln = ch1.ln();
-    auto exp = ch1.exp();
-    
-    std::cout << "sin: " << sin.to_string() << std::endl;
-    std::cout << "cos: " << cos.to_string() << std::endl;
-    std::cout << "ln: " << ln.to_string() << std::endl;
-    std::cout << "exp: " << exp.to_string() << std::endl;
-
-    std::map<std::string, double> variables = {{"x", 4.0}};
-    auto result = ch2.evaluate(variables);
-    std::cout << "evaluation: " << result << std::endl;
-
-    std::complex<double> complex_ch1(2.0, 3.0);
-    std::complex<double> complex_ch2(1.0, 4.0);
-    
-    Expression<std::complex<double>> complex_expr1(complex_ch1);
-    Expression<std::complex<double>> complex_expr2(complex_ch2);
-    
-    auto complex_sum = complex_expr1 + complex_expr2;
-    auto complex_diff = complex_expr1 - complex_expr2;
-    auto complex_prod = complex_expr1 * complex_expr2;
-    auto complex_div = complex_expr1 / complex_expr2;
-    
-    std::cout << "complex sum: " << complex_sum.to_string() << std::endl;
-    std::cout << "complex diff: " << complex_diff.to_string() << std::endl;
-    std::cout << "complex prod: " << complex_prod.to_string() << std::endl;
-    std::cout << "complex div: " << complex_div.to_string() << std::endl;
-    
-    return 0;
+    while (pos < expr.size()) {
+        char op = expr[pos];
+        if (op != '+' && op != '-') break;
+        pos++;
+        skipWhitespace(expr, pos);
+        auto right = parseTerm(expr, pos);
+        left = std::make_unique<BinaryOperationNode>(op, std::move(left), std::move(right));
+        skipWhitespace(expr, pos);
+    }
+    return left;
 }
+
+template<typename T>
+std::unique_ptr<typename Expression<T>::Node> Expression<T>::parseTerm(const std::string& expr, size_t& pos) {
+    auto left = parseFactor(expr, pos);
+    skipWhitespace(expr, pos);
+
+    while (pos < expr.size()) {
+        char op = expr[pos];
+        if (op != '*' && op != '/') break;
+        pos++;
+        skipWhitespace(expr, pos);
+        auto right = parseFactor(expr, pos);
+        left = std::make_unique<BinaryOperationNode>(op, std::move(left), std::move(right));
+        skipWhitespace(expr, pos);
+    }
+    return left;
+}
+
+template<typename T>
+std::unique_ptr<typename Expression<T>::Node> Expression<T>::parseFactor(const std::string& expr, size_t& pos) {
+    auto left = parseUnary(expr, pos);
+    skipWhitespace(expr, pos);
+
+    while (pos < expr.size() && expr[pos] == '^') {
+        pos++;
+        skipWhitespace(expr, pos);
+        auto right = parseUnary(expr, pos);
+        left = std::make_unique<BinaryOperationNode>('^', std::move(left), std::move(right));
+        skipWhitespace(expr, pos);
+    }
+    return left;
+}
+
+template<typename T>
+std::unique_ptr<typename Expression<T>::Node> Expression<T>::parseUnary(const std::string& expr, size_t& pos) {
+    skipWhitespace(expr, pos);
+
+    if (expr[pos] == '-') {
+        pos++;
+        skipWhitespace(expr, pos);
+        auto operand = parseUnary(expr, pos);
+        return std::make_unique<UnaryOperationNode>("-", std::move(operand));
+    }
+
+    return parsePrimary(expr, pos);
+}
+
+template<typename T>
+std::unique_ptr<typename Expression<T>::Node> Expression<T>::parsePrimary(const std::string& expr, size_t& pos) {
+    skipWhitespace(expr, pos);
+
+    if (expr[pos] == '-') {
+        pos++;
+        skipWhitespace(expr, pos);
+        auto operand = parsePrimary(expr, pos);
+        return std::make_unique<UnaryOperationNode>("-", std::move(operand));
+    }
+
+    if (expr[pos] == '(') {
+        pos++;
+        skipWhitespace(expr, pos);
+        auto node = parseExpression(expr, pos);
+        skipWhitespace(expr, pos);
+        if (expr[pos] != ')') {
+            throw std::invalid_argument("нужна вторая скобка");
+        }
+        pos++;
+        skipWhitespace(expr, pos);
+        return node;
+    }
+
+    if (std::isdigit(expr[pos]) || expr[pos] == '.') {
+        std::string numStr;
+        while (pos < expr.size() && (std::isdigit(expr[pos]) || expr[pos] == '.')) {
+            numStr += expr[pos++];
+        }
+        T value = static_cast<T>(std::stod(numStr));
+        skipWhitespace(expr, pos);
+
+        if (pos < expr.size() && (std::isalpha(expr[pos]) || expr[pos] == '(')) {
+            auto left = std::make_unique<ConstantNode>(value);
+            auto right = parsePrimary(expr, pos);
+            return std::make_unique<BinaryOperationNode>('*', std::move(left), std::move(right));
+        }
+
+        return std::make_unique<ConstantNode>(value);
+    }
+
+    if (std::isalpha(expr[pos])) {
+        std::string token;
+        while (pos < expr.size() && std::isalpha(expr[pos])) {
+            token += expr[pos++];
+        }
+        skipWhitespace(expr, pos);
+
+        if (token == "sin" || token == "cos" || token == "ln" || token == "exp") {
+            if (expr[pos] != '(') {
+                throw std::invalid_argument("нужна первая скобка после функции");
+            }
+            pos++;
+            skipWhitespace(expr, pos);
+            auto operand = parseExpression(expr, pos);
+            skipWhitespace(expr, pos);
+            if (expr[pos] != ')') {
+                throw std::invalid_argument("нужна вторая скобка после аргумента функции");
+            }
+            pos++;
+            skipWhitespace(expr, pos);
+            return std::make_unique<UnaryOperationNode>(token, std::move(operand));
+        }
+
+        return std::make_unique<VariableNode>(token);
+    }
+
+    throw std::invalid_argument("неизвестный символ");
+}
+
+template<>
+std::string Expression<std::complex<double>>::ConstantNode::toString() const {
+    std::ostringstream oss;
+    oss << "(" << value.real() << ", " << value.imag() << ")";
+    return oss.str();
+}
+
+template class Expression<double>;
+template class Expression<std::complex<double>>;
