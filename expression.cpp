@@ -343,14 +343,40 @@ std::unique_ptr<typename Expression<T>::Node> Expression<T>::parsePrimary(const 
     if (expr[pos] == '(') {
         pos++;
         skipWhitespace(expr, pos);
-        auto node = parseExpression(expr, pos);
+
+        auto realPart = parseExpression(expr, pos);
         skipWhitespace(expr, pos);
-        if (expr[pos] != ')') {
-            throw std::invalid_argument("нужна вторая скобка");
+
+        if (pos < expr.size() && (expr[pos] == '+' || expr[pos] == '-')) {
+            char sign = expr[pos];
+            pos++;
+            skipWhitespace(expr, pos);
+            auto imaginaryPart = parseExpression(expr, pos);
+            skipWhitespace(expr, pos);
+            if (pos >= expr.size() || expr[pos] != 'i') {
+                throw std::invalid_argument("ожидается 'i' в мнимой части");
+            }
+            pos++;
+            skipWhitespace(expr, pos);
+
+            if (expr[pos] != ')') {
+                throw std::invalid_argument("нужна вторая скобка");
+            }
+            pos++;
+            skipWhitespace(expr, pos);
+            if (sign == '+') {
+                return std::make_unique<BinaryOperationNode>('+', std::move(realPart), std::move(imaginaryPart));
+            } else {
+                return std::make_unique<BinaryOperationNode>('-', std::move(realPart), std::move(imaginaryPart));
+            }
+        } else {
+            if (expr[pos] != ')') {
+                throw std::invalid_argument("нужна вторая скобка");
+            }
+            pos++;
+            skipWhitespace(expr, pos);
+            return realPart;
         }
-        pos++;
-        skipWhitespace(expr, pos);
-        return node;
     }
 
     if (std::isdigit(expr[pos]) || expr[pos] == '.') {
@@ -358,8 +384,14 @@ std::unique_ptr<typename Expression<T>::Node> Expression<T>::parsePrimary(const 
         while (pos < expr.size() && (std::isdigit(expr[pos]) || expr[pos] == '.')) {
             numStr += expr[pos++];
         }
-        T value = static_cast<T>(std::stod(numStr));
         skipWhitespace(expr, pos);
+
+        T value;
+        if constexpr (std::is_same_v<T, std::complex<double>>) {
+            value = std::complex<double>(std::stod(numStr), 0);
+        } else {
+            value = static_cast<T>(std::stod(numStr));
+        }
 
         if (pos < expr.size() && (std::isalpha(expr[pos]) || expr[pos] == '(')) {
             auto left = std::make_unique<ConstantNode>(value);
@@ -392,6 +424,13 @@ std::unique_ptr<typename Expression<T>::Node> Expression<T>::parsePrimary(const 
             skipWhitespace(expr, pos);
             return std::make_unique<UnaryOperationNode>(token, std::move(operand));
         }
+        if (token == "i") {
+            if constexpr (std::is_same_v<T, std::complex<double>>) {
+                return std::make_unique<ConstantNode>(std::complex<double>(0, 1));
+            } else {
+                throw std::invalid_argument("мнимая единица поддерживается только для std::complex<double>");
+            }
+        }
 
         return std::make_unique<VariableNode>(token);
     }
@@ -399,10 +438,28 @@ std::unique_ptr<typename Expression<T>::Node> Expression<T>::parsePrimary(const 
     throw std::invalid_argument("неизвестный символ");
 }
 
+template<typename T>
+void printResult(const T& value) {
+    std::cout << value << std::endl;
+}
+
+template<>
+void printResult<std::complex<double>>(const std::complex<double>& value) {
+    if (value.imag() == 0) {
+        std::cout << value.real() << std::endl;
+    } else {
+        std::cout << "(" << value.real() << ", " << value.imag() << ")" << std::endl;
+    }
+}
+
 template<>
 std::string Expression<std::complex<double>>::ConstantNode::toString() const {
     std::ostringstream oss;
-    oss << "(" << value.real() << ", " << value.imag() << ")";
+    if (value.imag() == 0) {
+        oss << value.real();
+    } else {
+        oss << "(" << value.real() << ", " << value.imag() << ")";
+    }
     return oss.str();
 }
 

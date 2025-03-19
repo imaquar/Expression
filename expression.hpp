@@ -9,6 +9,12 @@
 #include <cctype>
 
 template<typename T>
+void printResult(const T& value);
+
+template<>
+void printResult<std::complex<double>>(const std::complex<double>& value);
+
+template<typename T>
 class Expression {
 public:
 

@@ -188,12 +188,27 @@ void tests() {
         std::cout << "Test 13: FAIL" << std::endl;
     }
 
-    Expression<double> expr = Expression<double>::fromString("sin(2x) - 10(x^3)");
-    std::cout << "Выражение: " << expr.toString() << std::endl;
+    auto expr1 = Expression<std::complex<double>>::fromString("((cos(0)* 5) ^ 2 + 4/ 2)/3");
+    std::cout << "Выражение 1: " << expr1.toString() << std::endl;
+    std::cout << "Вычисление:" << std::endl;
+    printResult(expr1.evaluate({}).value());
 
-    Expression<double> diffExpr = expr.differentiate("x").simplify();
-    std::cout << "Производная: " << diffExpr.toString() << std::endl;
+    auto expr2 = Expression<std::complex<double>>::fromString("sin(2 + 3i) + cos(3 + 4i)");
+    std::cout << "Выражение 2: " << expr2.toString() << std::endl;
+    std::cout << "Вычисление:" << std::endl;
+    printResult(expr2.evaluate({}).value());
 
+    Expression<double> expr3 = Expression<double>::fromString("sin(2x) - 10(x^3)");
+    std::cout << "Выражение 3: " << expr3.toString() << std::endl;
+    Expression<double> diffExpr1 = expr3.differentiate("x").simplify();
+    std::cout << "Производная:" << std::endl;
+    std::cout << diffExpr1.toString() << std::endl;
+
+    Expression<double> expr4 = Expression<double>::fromString("ln(5x) + exp(10(x^2))");
+    std::cout << "Выражение 4: " << expr4.toString() << std::endl;
+    Expression<double> diffExpr2 = expr4.differentiate("x").simplify();
+    std::cout << "Производная:" << std::endl;
+    std::cout << diffExpr2.toString() << std::endl;
 }
 
 int main() {
@@ -203,34 +218,3 @@ int main() {
     return 0;
 
 }
-
-
-
-
-// int main() {
-
-//     Expression<double> z("z");
-//     Expression<double> w("w");
-//     Expression<double> x("x");
-
-//     Expression<double> expr1 = z * w.ln() - (x ^ 2.0);
-
-//     std::cout << "выражение: " << expr1.toString() << std::endl;
-
-//     std::map<std::string, double> variables = {{"z", 4.5}, {"w", 8.0}, {"x", 2.0}};
-//     auto result = expr1.evaluate(variables);
-
-//     if (result) {
-//         std::cout << "вычисление: " << *result << std::endl;
-//     } else {
-//         std::cout << "вычисление без переменной: " << expr1.toStringWithSubstitution(variables) << std::endl;
-//     }
-
-//     Expression<double> expr = Expression<double>::fromString("-sin(2x) - 10(x^3)");
-//     std::cout << "выражение: " << expr.toString() << std::endl;
-
-//     Expression<double> diffExpr = expr.differentiate("x").simplify();
-//     std::cout << "производная: " << diffExpr.toString() << std::endl;
-
-//     return 0;
-// }
