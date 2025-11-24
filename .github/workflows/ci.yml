@@ -1,0 +1,23 @@
+name: C_CPP_CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install build tools
+        run: sudo apt update && sudo apt install -y build-essential
+
+      - name: Build project
+        run: make
+
+      - name: Run tests (если есть)
+        run: make test
+        continue-on-error: true
