@@ -390,10 +390,10 @@ std::unique_ptr<typename Expression<T>::Node> Expression<T>::parsePrimary(const 
         if constexpr (std::is_same_v<T, std::complex<double>>) {
             value = std::complex<double>(std::stod(numStr), 0);
         } else {
-            value = static_cast<Tэ>(std::stod(numStr));
+            value = static_cast<T>(std::stod(numStr));
         }
 
-        if (pos < expr.size() && (std::isalpha(expr[pos]) || expr[pos] == '(')) {x
+        if (pos < expr.size() && (std::isalpha(expr[pos]) || expr[pos] == '(')) {
             auto left = std::make_unique<ConstantNode>(value);
             auto right = parsePrimary(expr, pos);
             return std::make_unique<BinaryOperationNode>('*', std::move(left), std::move(right));
